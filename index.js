@@ -3,6 +3,12 @@ const cors = require("cors");
 const pool = require("./db");
 const app = express();
 
+const PORT = process.env.PORT || 5002;
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
+
 const corsOption = {
   origin: ["http://localhost:5173"],
   optionSuccessStatus: 200,
@@ -11,6 +17,61 @@ const corsOption = {
 app.use(cors(corsOption));
 
 app.use(express.json());
+
+app.post("/api/login", (req, res) => {
+  const { username, email, password } = req.body;
+  pool.query(
+    "SELECT username, email, password FROM users WHERE username = $1",
+    [username],
+    (errors, results) => {
+      if (errors) throw errors;
+      if (results.rowCount === 0 || null) {
+        return res.status(404).send("ユーザーネームが違います");
+      }
+      const user = results.rows[0];
+      if (user.email !== email) {
+        return res.status(401).send("メールアドレスが違います");
+      }
+      if (user.password !== password) {
+        return res.status(401).send("パスワードが違います");
+      }
+      return res.status(200).send("ログインに成功しました");
+    }
+  );
+});
+
+app.post("/api/signup", async (req, res) => {
+  const { username, email, password } = req.body;
+
+  try {
+    const checkUsername = await pool.query(
+      "SELECT username FROM users WHERE username = $1",
+      [username]
+    );
+
+    if (checkUsername.rows.length > 0) {
+      return res.status(409).send("このユーザーネームは使用されています");
+    }
+
+    const checkEmail = await pool.query(
+      "SELECT email FROM users WHERE email = $1",
+      [email]
+    );
+
+    if (checkEmail.rows.length > 0) {
+      return res.status(409).send("このメールアドレスは使用されています");
+    }
+    await pool.query(
+      "INSERT INTO users (username, email, password) VALUES ($1, $2, $3)",
+      [username, email, password]
+    );
+
+    res.status(201).send("ユーザーの作成に成功しました");
+  } catch (err) {
+    console.error("Error executing query:", err);
+    res.status(500).send("サーバー側でエラーが発生しました");
+  }
+});
 
 app.get("/api/todos", async (req, res) => {
   try {
@@ -36,24 +97,6 @@ app.post("/api/todos", async (req, res) => {
   }
 });
 
-app.patch("/api/todos/:id", async (req, res) => {
-  const { id } = req.params;
-  const { text } = req.body;
-  try {
-    const result = await pool.query(
-      "UPDATE todos SET text = $1 WHERE id = $2 RETURNING *",
-      [text, id]
-    );
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Todo not found" });
-    }
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error("Error updating todo text:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
 app.put("/api/todos/:id", async (req, res) => {
   const { id } = req.params;
   const { completed } = req.body;
@@ -68,6 +111,24 @@ app.put("/api/todos/:id", async (req, res) => {
     res.json(result.rows[0]);
   } catch (error) {
     console.error("Error updating todo:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.patch("/api/todos/:id", async (req, res) => {
+  const { id } = req.params;
+  const { text } = req.body;
+  try {
+    const result = await pool.query(
+      "UPDATE todos SET text = $1 WHERE id = $2 RETURNING *",
+      [text, id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Todo not found" });
+    }
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error("Error updating todo text:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -87,9 +148,4 @@ app.delete("/api/todos/:id", async (req, res) => {
     console.error("Error deleting todo:", error);
     res.status(500).json({ error: "Internal server error" });
   }
-});
-
-const PORT = process.env.PORT || 5002;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
 });
