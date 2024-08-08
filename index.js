@@ -19,15 +19,12 @@ app.use(cors(corsOption));
 app.use(express.json());
 
 app.post("/api/login", (req, res) => {
-  const { username, email, password } = req.body;
+  const { email, password } = req.body;
   pool.query(
-    "SELECT username, email, password FROM users WHERE username = $1",
-    [username],
+    "SELECT email, password FROM users WHERE email = $1",
+    [email],
     (errors, results) => {
       if (errors) throw errors;
-      if (results.rowCount === 0 || null) {
-        return res.status(404).send("ユーザーネームが違います");
-      }
       const user = results.rows[0];
       if (user.email !== email) {
         return res.status(401).send("メールアドレスが違います");
@@ -41,18 +38,9 @@ app.post("/api/login", (req, res) => {
 });
 
 app.post("/api/signup", async (req, res) => {
-  const { username, email, password } = req.body;
+  const { email, password } = req.body;
 
   try {
-    const checkUsername = await pool.query(
-      "SELECT username FROM users WHERE username = $1",
-      [username]
-    );
-
-    if (checkUsername.rows.length > 0) {
-      return res.status(409).send("このユーザーネームは使用されています");
-    }
-
     const checkEmail = await pool.query(
       "SELECT email FROM users WHERE email = $1",
       [email]
@@ -61,10 +49,10 @@ app.post("/api/signup", async (req, res) => {
     if (checkEmail.rows.length > 0) {
       return res.status(409).send("このメールアドレスは使用されています");
     }
-    await pool.query(
-      "INSERT INTO users (username, email, password) VALUES ($1, $2, $3)",
-      [username, email, password]
-    );
+    await pool.query("INSERT INTO users (email, password) VALUES ($1, $2)", [
+      email,
+      password,
+    ]);
 
     res.status(201).send("ユーザーの作成に成功しました");
   } catch (err) {
