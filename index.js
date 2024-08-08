@@ -26,6 +26,9 @@ app.post("/api/login", (req, res) => {
     (errors, results) => {
       if (errors) throw errors;
       const user = results.rows[0];
+      if (!user) {
+        return res.status(401).send("メールアドレスが登録されていません");
+      }
       if (user.email !== email) {
         return res.status(401).send("メールアドレスが違います");
       }
