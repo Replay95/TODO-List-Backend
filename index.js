@@ -48,31 +48,33 @@ app.post("/api/signup", async (req, res) => {
   }
 });
 
-app.post("/api/login", (req, res) => {
+app.post("/api/login", async (req, res) => {
   const { email, password } = req.body;
-  pool.query(
-    "SELECT id, email, password FROM users WHERE email = $1",
-    [email],
-    (errors, results) => {
-      if (errors) throw errors;
-      const loginUser = results.rows[0];
-      if (!loginUser) {
-        return res
-          .status(401)
-          .json({ message: "ユーザー情報が登録されていません" });
-      }
-      if (loginUser.email !== email) {
-        return res.status(401).json({ message: "メールアドレスが違います" });
-      }
-      if (loginUser.password !== password) {
-        return res.status(401).json({ message: "パスワードが違います" });
-      }
-      return res.status(200).json({
+
+  try {
+    const result = await pool.query(
+      "SELECT id, email, password FROM users WHERE email = $1",
+      [email]
+    );
+
+    const loginUser = result.rows[0];
+
+    if (!loginUser) {
+      res.status(401).json({ message: "ユーザー情報が登録されていません" });
+    } else if (loginUser.email !== email) {
+      res.status(401).json({ message: "メールアドレスが違います" });
+    } else if (loginUser.password !== password) {
+      res.status(401).json({ message: "パスワードが違います" });
+    } else {
+      res.status(200).json({
         id: loginUser.id,
         message: "ログインに成功しました",
       });
     }
-  );
+  } catch (error) {
+    console.error("Error during login:", error);
+    res.status(500).json({ message: "サーバーエラーが発生しました" });
+  }
 });
 
 app.get("/api/todos/:user_id", async (req, res) => {
