@@ -61,10 +61,8 @@ app.post("/api/login", async (req, res) => {
 
     if (!loginUser) {
       res.status(401).json({ message: "ユーザー情報が登録されていません" });
-    } else if (loginUser.email !== email) {
-      res.status(401).json({ message: "メールアドレスが違います" });
-    } else if (loginUser.password !== password) {
-      res.status(401).json({ message: "パスワードが違います" });
+    } else if (loginUser.email !== email || loginUser.password !== password) {
+      res.status(401).json({ message: "入力情報に誤りがあります" });
     } else {
       res.status(200).json({
         id: loginUser.id,
